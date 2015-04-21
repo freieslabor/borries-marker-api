@@ -1,0 +1,15 @@
+;*PR0,10;*OA;*SE;
+;*PR0,1;*OA;*SE;
+;*PR0,0.1;*OA;*SE;
+
+;*PR0,-10;*OA;*SE;
+;*PR0,-1;*OA;*SE;
+;*PR0,-0.1;*OA;*SE;
+
+;*PR10,0;*OA;*SE;
+;*PR1,0;*OA;*SE;
+;*PR0.1,0;*OA;*SE;
+
+;*PR-10,0;*OA;*SE;
+;*PR-1,0;*OA;*SE;
+;*PR-0.1,0;*OA;*SE;
