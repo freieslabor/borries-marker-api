@@ -11,6 +11,7 @@ HOME = r";*INITrd+,+;*RX;*RY;*RTHOME;*SH;;*SE;;*OA;;*SH;;*SE;"
 NOT_AUS = r';;*HE;;;'
 
 class Marker(threading.Thread):
+    """Borries marker represenation."""
     MAX_X = 122.5
     MAX_Y = 102.5
 
@@ -22,6 +23,7 @@ class Marker(threading.Thread):
     answers = []
 
     def __init__(self, dev, timeout=0):
+        """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
         logging.basicConfig(level=logging.DEBUG, format='%(asctime)s ' +
             '%(levelname)-8s %(message)s', datefmt='%H:%M:%S.%f')
@@ -30,6 +32,7 @@ class Marker(threading.Thread):
         self.home()
 
     def read(self, size=102400):
+        """Reads given amount of bytes in buffer and logs them."""
         self.read_buf += self.__serial.read(size)
         while '\r' in self.read_buf:
             buf_split = self.read_buf.split('\r', 1)
@@ -40,20 +43,24 @@ class Marker(threading.Thread):
             logging.debug('read: %s' % buf_split[0])
 
     def position(self):
+        """Returns x and y position as tuple."""
         return self.__x, self.__y
 
     def home(self):
+        """Moves to home position and resets position counter."""
         self.write_buf += HOME
 
         self.__x = 0
         self.__y = 0
 
     def not_aus(self):
+        """Sends emergency off sequence."""
         # do not use write_buf, send directly
         self.__serial.write(NOT_AUS)
         self.__serial.flush()
 
     def move(self, x, y):
+        """Moves to given position."""
         if 0 <= x + self.__x <= self.MAX_X and 0 <= y + self.__y <= self.MAX_Y:
             self.write_buf += r';*PR%02.2f,%02.2f;;*SH;*OA;*SE;' % (x, y)
 
@@ -64,6 +71,7 @@ class Marker(threading.Thread):
             raise AttributeError
 
     def run(self):
+        """Thread loop."""
         while True:
             if ';;' not in self.write_buf:
                 self.write_buf += ';*SH;;*SH;'
