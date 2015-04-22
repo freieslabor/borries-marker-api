@@ -15,11 +15,17 @@ EMERGENCY_OFF = ';;*HE;;;'
 
 
 class SerialAnswer(object):
+    """Answer type (movement, heartbeat..)."""
+    # to be done
     tbd = 0
+    # internal count of completed operations (multiplied by percentage)
     __done = 0
+    # percentage multiplier
     multiplier = 1
 
     def __init__(self, multiplier):
+        """Initialization with multiplier defining the fractional amount of
+        messages needed for one complete answer."""
         self.multiplier = multiplier
 
     @property
@@ -41,17 +47,13 @@ class Marker(threading.Thread):
     read_buf = r''
     write_buf = r''
 
-    commands = []
-    answers = []
-
     daemon = True
     running = True
 
     # count<prefix of answer, SerialAnswer object>
     count = {
-            'ST': SerialAnswer(.5), # movement
+            'ST': SerialAnswer(.5),  # movement
             }
-
 
     def __init__(self, dev, timeout=0):
         """Initializes marker and moves to home position."""
@@ -61,7 +63,7 @@ class Marker(threading.Thread):
                             datefmt='%H:%M:%S')
         self.__serial = serial.Serial(dev, timeout=0)
         self.write_buf += INIT
-        # init sends 12 answers
+        # init sends 12 answers when done
         self.count['ST'].tbd += 12
         self.home()
 
@@ -77,8 +79,8 @@ class Marker(threading.Thread):
             if prefix in self.count:
                 count = self.count[prefix]
                 self.count[prefix].increment_done()
-                logging.info('%d/%d %s executed.' \
-                        % (count.done, count.tbd, prefix))
+                logging.info('%d/%d %s executed.'
+                             % (count.done, count.tbd, prefix))
 
     def position(self):
         """Returns x and y position as tuple."""
@@ -91,7 +93,7 @@ class Marker(threading.Thread):
             self.move_abs(1, 1)
 
         self.write_buf += HOME
-        # home sends 2 move answers
+        # home sends 2 move answers when done
         self.count['ST'].tbd += 2
 
         self.__x = 0
@@ -101,7 +103,7 @@ class Marker(threading.Thread):
         """Sends emergency off sequence."""
         # make sure write buffer won't get send anymore
         self.running = False
-        # do not use write_buf, send directly
+        # do not use write buffer, send directly
         self.__serial.write(EMERGENCY_OFF)
         self.__serial.flush()
         err = 'Emergency off triggered by %s' % cause
@@ -136,7 +138,6 @@ class Marker(threading.Thread):
                 datagram, self.write_buf = self.write_buf.split(';;', 1)
                 self.__serial.write(';%s;' % datagram)
                 logging.debug('write: ;%s;' % datagram)
-                self.commands.append(datagram)
                 self.read()
                 self.__serial.flush()
 
@@ -144,27 +145,20 @@ class Marker(threading.Thread):
 
 
 if __name__ == '__main__':
+    # test case
     import math
-    m = Marker('/dev/ttyUSB0')
-    points = [
-            (100, 100),
-            (-50, -50),
-            (-50, -50),
-            (100, 100),
-            (-50, -50),
-            (-50, -50)
-    ]
-    cycle_points = []
 
+    m = Marker('/dev/ttyUSB0')
+    m.start()
+
+    # move in circle
     for i in xrange(50):
         angle = i*2*math.pi/50.0
         x = 50 + round(45 * math.cos(angle))
         y = 50 + round(45 * math.sin(angle))
-        cycle_points.append((x, y))
+        m.move_abs(x, y)
 
-    m.start()
-    for coord in cycle_points:
-        m.move_abs(coord[0], coord[1])
+    # move to home position for next session
     m.home()
 
     # wait for thread to be finished
