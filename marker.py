@@ -48,6 +48,10 @@ class Marker(threading.Thread):
 
     def home(self):
         """Moves to home position and resets position counter."""
+        # improve speed to home position: move to (1,1)
+        if self.position() != (0, 0):
+            self.move_abs(1, 1)
+
         self.write_buf += HOME
 
         self.__x = 0
@@ -59,8 +63,8 @@ class Marker(threading.Thread):
         self.__serial.write(NOT_AUS)
         self.__serial.flush()
 
-    def move(self, x, y):
-        """Moves to given position."""
+    def move_rel(self, x, y):
+        """Moves to given relative position."""
         if 0 <= x + self.__x <= self.MAX_X and 0 <= y + self.__y <= self.MAX_Y:
             self.write_buf += r';*PR%02.2f,%02.2f;;*SH;*OA;*SE;' % (x, y)
 
@@ -104,11 +108,9 @@ if __name__ == '__main__':
         angle = i*2*math.pi/50.0
         x = 50 + round(45 * math.cos(angle))
         y = 50 + round(45 * math.sin(angle))
-        cycle_points.append((x-old_x, y-old_y))
-        print (x-old_x, y-old_y)
-        old_x, old_y = x, y
+        cycle_points.append((x, y))
 
     m.start()
     for coord in cycle_points:
-        m.move(coord[0], coord[1])
+        m.move_abs(coord[0], coord[1])
     m.home()
