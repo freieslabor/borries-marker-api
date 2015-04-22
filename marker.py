@@ -36,7 +36,7 @@ class Marker(threading.Thread):
         threading.Thread.__init__(self)
         logging.basicConfig(level=logging.DEBUG,
                             format='%(asctime)s %(levelname)-8s %(message)s',
-                            datefmt='%H:%M:%S.%f')
+                            datefmt='%H:%M:%S')
         self.__serial = serial.Serial(dev, timeout=0)
         self.write_buf += INIT
         self.home()
