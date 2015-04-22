@@ -14,6 +14,22 @@ HOME = ';*INITrd+,+;*RX;*RY;*RTHOME;*SH;;*SE;;*OA;;*SH;;*SE;'
 EMERGENCY_OFF = ';;*HE;;;'
 
 
+class SerialAnswer(object):
+    tbd = 0
+    __done = 0
+    multiplier = 1
+
+    def __init__(self, multiplier):
+        self.multiplier = multiplier
+
+    @property
+    def done(self):
+        return self.__done * self.multiplier
+
+    def increment_done(self):
+        self.__done += 1
+
+
 class Marker(threading.Thread):
     """Borries marker represenation."""
     MAX_X = 122.5
@@ -31,26 +47,38 @@ class Marker(threading.Thread):
     daemon = True
     running = True
 
+    # count<prefix of answer, SerialAnswer object>
+    count = {
+            'ST': SerialAnswer(.5), # movement
+            }
+
+
     def __init__(self, dev, timeout=0):
         """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
-        logging.basicConfig(level=logging.DEBUG,
+        logging.basicConfig(level=logging.INFO,
                             format='%(asctime)s %(levelname)-8s %(message)s',
                             datefmt='%H:%M:%S')
         self.__serial = serial.Serial(dev, timeout=0)
         self.write_buf += INIT
+        # init sends 12 answers
+        self.count['ST'].tbd += 12
         self.home()
 
     def read(self, size=102400):
         """Reads given amount of bytes in buffer and logs them."""
         self.read_buf += self.__serial.read(size)
         while '\r' in self.read_buf:
-            buf_split = self.read_buf.split('\r', 1)
-            self.read_buf = buf_split[1]
-            # if buf_split[0].startswith('ST '):
-            #     self.answers.append(True)
-            #     print '%s executed' % self.commands[len(self.answers)-1]
-            logging.debug('read: %s' % buf_split[0])
+            answer, self.read_buf = self.read_buf.split('\r', 1)
+            logging.debug('read: %s' % answer)
+
+            # safe answer count per type
+            prefix = answer.split()[0]
+            if prefix in self.count:
+                count = self.count[prefix]
+                self.count[prefix].increment_done()
+                logging.info('%d/%d %s executed.' \
+                        % (count.done, count.tbd, prefix))
 
     def position(self):
         """Returns x and y position as tuple."""
@@ -63,6 +91,8 @@ class Marker(threading.Thread):
             self.move_abs(1, 1)
 
         self.write_buf += HOME
+        # home sends 2 move answers
+        self.count['ST'].tbd += 2
 
         self.__x = 0
         self.__y = 0
@@ -74,7 +104,9 @@ class Marker(threading.Thread):
         # do not use write_buf, send directly
         self.__serial.write(EMERGENCY_OFF)
         self.__serial.flush()
-        raise Exception('Emergency off triggered by %s' % cause)
+        err = 'Emergency off triggered by %s' % cause
+        logging.error(err)
+        raise Exception(err)
 
     def move_rel(self, x, y):
         """Moves to given relative position."""
@@ -83,24 +115,16 @@ class Marker(threading.Thread):
 
             self.__x = self.__x + x
             self.__y = self.__y + y
+            self.count['ST'].tbd += 1
 
         else:
-            self.emergency_off('Out of bounds.')
+            self.emergency_off('(%02.2f,%02.2f) out of bounds.' % (x, y))
 
     def move_abs(self, x, y):
         """Moves to given absolute position."""
-        if 0 <= x <= self.MAX_X and 0 <= y <= self.MAX_Y:
-            rel_x = x - self.__x
-            rel_y = y - self.__y
-
-            self.write_buf += r';*PR%02.2f,%02.2f;;*SH;*OA;*SE;' \
-                % (rel_x, rel_y)
-
-            self.__x = x
-            self.__y = y
-
-        else:
-            self.emergency_off('Out of bounds.')
+        rel_x = x - self.__x
+        rel_y = y - self.__y
+        self.move_rel(rel_x, rel_y)
 
     def run(self):
         """Thread loop."""
