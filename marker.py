@@ -175,8 +175,8 @@ class Marker(threading.Thread):
             for y in range(0, img_bw.size[1]):
                 pixel_value = img_bw.getpixel((x, y))
                 if pixel_value == 0:
-                    self.move_abs((start_x+x)*(1/granularity),
-                                  (start_y+y)*(1/granularity))
+                    self.move_abs(start_x+(x*(1/granularity)),
+                                  start_y+(y*(1/granularity))
                     self.needle_down()
 
     def run(self):
