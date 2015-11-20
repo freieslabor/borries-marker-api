@@ -6,6 +6,7 @@ import logging
 import time
 import threading
 from datetime import datetime, timedelta
+import Image
 
 
 INIT = '*SQ;;*SQ;;*SQ;*CB;*INITstn;*INITzn;*DB;*CPa;*SE;*CPz;*CPd;*CPa;*SE;*INITp301;*OI;;*CPa;*RTEOF;*SE;*INITwn;*INITgn;*INITppn,pj;*INITzpj;*INITzn;*INITd16,0,5,500,20000;*INITdx15,0,30;*WD10;*WU10;*SE;*INITs100.00,100.00;*INITo-100,-100;;*INITno0,0;*INITrd+,+;*INITrr+,+;*INITrs+,+;LO1;*LBn;*INITesn,n;*INITze-,-;*VM6500,6500;*VN%d,%d;*VS400,400;*SE;*VB%d;*VH600,600;*VP600,600;*VC600,600;*SE;;*AC90000,90000;*LBd0.00;*LBm1.4,1.16;;*INITn1;;*INITxqrap;;*INITxp5;*INITzs0;;*INITaen,asn,adj;*MO18E1,9600;*CPa;*SE;;*INITbeL,0,beL,1,beL,2,beH,3,beL,4,beH,5,beH,6,beL,7,beL,8,beL,9,beL,10,beL,11,beL,12,beL,13,beL,14,beL,15,beL,16,beL,17,beL,18,beL,19,beL,20,beL,21,beL,22,beL,23,beL,24;*INITbaD,22,baD,21,baD,20,baD,19,baD,18,baD,17,baD,16,baD,15,baD,14,baD,13,baD,12,baD,11,baD,10,baD,9,baD,8,baD,7,baD,6,baD,5,baD,4,baD,3,baD,2,baD,1,ba0,0;*SE;;;;*VP1200,1200;;*CPa;*RTEOF;*SE;CS6;*INITbe0,5;;*CPa;*RTEOF;*SE;;*XRH;;*EB;*SE;;*SH;;*SH;;*SH;;*SH;;PU;;*INITrr+,+;'
@@ -159,6 +160,25 @@ class Marker(threading.Thread):
         self.write_buf += NEEDLE
         self.count['ST'].tbd += 1
 
+    def mark_picture(self, image_file, bounding_box, granularity=5):
+        """Takes an image and marks it in the given bounding box."""
+        # open image to file and convert to black and white
+        start_x, start_y, end_x, end_y = bounding_box
+        width = end_x - start_x
+        height = end_y - start_y
+        img = Image.open(image_file)
+        img = img.resize((width*granularity, height*granularity),
+                         Image.ANTIALIAS)
+        granularity = float(granularity)
+        img_bw = img.convert('1')
+        for x in range(0, img_bw.size[0]):
+            for y in range(0, img_bw.size[1]):
+                pixel_value = img_bw.getpixel((x, y))
+                if pixel_value == 0:
+                    self.move_abs((start_x+x)*(1/granularity),
+                                  (start_y+y)*(1/granularity))
+                    self.needle_down()
+
     def run(self):
         """Thread loop."""
         while self.running:
@@ -176,18 +196,10 @@ class Marker(threading.Thread):
 
 
 if __name__ == '__main__':
-    # test case
-    import math
-
-    m = Marker('/dev/ttyUSB0', slow_motion=True)
+    m = Marker('/dev/ttyUSB1')
     m.start()
 
-    # move in circle
-    for i in xrange(50):
-        angle = i*2*math.pi/50.0
-        x = 50 + round(45 * math.cos(angle))
-        y = 50 + round(45 * math.sin(angle))
-        m.move_abs(x, y)
+    m.mark_picture('Logo_quadratisch.png', (0, 0, 50, 50))
 
     # move to home position for next session
     m.home()
