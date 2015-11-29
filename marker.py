@@ -180,8 +180,9 @@ class Marker(threading.Thread):
         img = Image.open(image_file)
 
         if img.size[0] < width*granularity or img.size[1] < height*granularity:
-            self.emergency_off('Image resolution is too small for given '
-                               'bounding box and granularity.')
+            self.user_confirmation('Image resolution might be too low for '
+                                   'given bounding box and granularity. Mark '
+                                   'anyway?')
 
         img = img.resize((width*granularity, height*granularity),
                          Image.ANTIALIAS)
@@ -231,14 +232,21 @@ class Marker(threading.Thread):
         logging.info('Preview saved as %s (took %s). Please check it.'
                      % (preview_file, datetime.now() - start))
 
-        cont = ' '
-        while cont.lower() not in ['y', 'n']:
-            cont = raw_input('Start marking? [y/n]')
-
-        if cont.lower() == 'n':
+        # preview check by user
+        if not self.user_confirmation('Start marking?'):
             quit()
 
         self.checked = True
+
+    def user_confirmation(self, question):
+        cont = ' '
+        while cont.lower() not in ['y', 'n']:
+            cont = raw_input('%s [y/n]' % question)
+
+        if cont.lower() == 'y':
+            return True
+
+        return False
 
     def run(self):
         """Thread loop."""
