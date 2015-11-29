@@ -196,7 +196,7 @@ class Marker(threading.Thread):
                                   start_y+(y*(1/granularity)))
                     self.needle_down()
 
-    def check(self, rds=10, preview_file='preview.png'):
+    def check(self, rds=10, preview_file='preview.png', dont_ask=False):
         start = datetime.now()
 
         white = (255, 255, 255)
@@ -233,8 +233,9 @@ class Marker(threading.Thread):
                      % (preview_file, datetime.now() - start))
 
         # preview check by user
-        if not self.user_confirmation('Start marking?'):
-            quit()
+        if not dont_ask:
+            if not self.user_confirmation('Start marking?'):
+                quit()
 
         self.checked = True
 

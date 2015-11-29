@@ -3,14 +3,20 @@
 
 import re
 import unittest
-import marker
+from marker import Marker
 import time
 import os
+from datetime import datetime
 import signal
 import subprocess as sp
 import serial
 import threading
 import random
+try:
+    import Image
+except ImportError:
+    from PIL import Image
+
 
 # send commands
 HEARTBEAT_OUT = 'RSIX800O00'
@@ -83,7 +89,16 @@ class MarkerEmulator(threading.Thread):
             time.sleep(.1)
 
 
-class MarkerTest(unittest.TestCase):
+class MarkerTest(object):
+    def __init__(self, *args, **kwargs):
+        if 'initial_check' in kwargs:
+            self.initial_check = kwargs['initial_check']
+            del kwargs['initial_check']
+        else:
+            self.initial_check = False
+
+        super(MarkerTest, self).__init__(*args, **kwargs)
+
     def setUp(self):
         # create two connected PTYs
         cmd = ['socat', '-d', '-d', 'pty,raw,echo=0', 'pty,raw,echo=0']
@@ -101,15 +116,14 @@ class MarkerTest(unittest.TestCase):
         self.marker_emu = MarkerEmulator(marker_pty)
         self.marker_emu.start()
 
-        self.marker_client = marker.Marker(client_pty, initial_check=True)
+        self.marker_client = Marker(client_pty,
+                                    initial_check=self.initial_check)
         self.marker_client.start()
-        self.marker_client.mark_picture('Logo_quadratisch.png', (0, 0, 30, 30),
-                                        granularity=5)
 
-        self.marker_client.check()
-
-        while not self.marker_client.count['ST'].ready:
-            time.sleep(.1)
+        # wait for marker being ready only when checks are turned off
+        if not self.initial_check:
+            while not self.marker_client.count['ST'].ready:
+                time.sleep(.1)
 
     def tearDown(self):
         self.marker_client.running = False
@@ -140,6 +154,8 @@ class MarkerTest(unittest.TestCase):
             max = self.marker_client.MAX_Y
         return random.randint(min*100, max*100) / 100.0
 
+
+class MarkerBasicTest(MarkerTest, unittest.TestCase):
     def test_absolute_move(self):
         new_pos = (self.random_x_position(), self.random_y_position())
         self.move(self.marker_client.move_abs, new_pos[0], new_pos[1])
@@ -185,6 +201,31 @@ class MarkerTest(unittest.TestCase):
         with self.assertRaises(Exception):
             time.sleep(1)
             self.marker_client.emergency_off()
+
+
+class MarkerImageTest(MarkerTest, unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super(MarkerImageTest, self).__init__(*args, initial_check=True,
+                                              **kwargs)
+
+    def test_image(self):
+        self.marker_client.mark_picture('Logo_quadratisch.png', (0, 0, 30, 30),
+                                        granularity=5)
+
+        preview_file = 'preview_unittest.png'
+        self.marker_client.check(preview_file=preview_file,
+                                 dont_ask=True)
+
+        mod_timestamp = os.path.getmtime(preview_file)
+        mod_datetime = datetime.fromtimestamp(mod_timestamp)
+
+        # basic file checks:
+        # check that the file has just been written
+        self.assertGreater(datetime.now(), mod_datetime)
+
+        # check that the file is not empty
+        img = Image.open(preview_file)
+        self.assertTrue(any([col[0] != col[1] for col in img.getextrema()]))
 
 
 if __name__ == '__main__':
