@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import re
 import unittest
 import marker
@@ -6,7 +9,6 @@ import os
 import signal
 import subprocess as sp
 import serial
-import logging
 import threading
 import random
 
@@ -99,8 +101,12 @@ class MarkerTest(unittest.TestCase):
         self.marker_emu = MarkerEmulator(marker_pty)
         self.marker_emu.start()
 
-        self.marker_client = marker.Marker(client_pty, log_level=logging.DEBUG)
+        self.marker_client = marker.Marker(client_pty, initial_check=True)
         self.marker_client.start()
+        self.marker_client.mark_picture('Logo_quadratisch.png', (0, 0, 30, 30),
+                                        granularity=5)
+
+        self.marker_client.check()
 
         while not self.marker_client.count['ST'].ready:
             time.sleep(.1)
