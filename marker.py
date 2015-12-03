@@ -6,6 +6,7 @@ import logging
 import time
 import serial
 import re
+import warnings
 from datetime import datetime, timedelta
 try:
     import Image
@@ -191,30 +192,38 @@ class Marker(threading.Thread):
         start_x, start_y, end_x, end_y = bounding_box
         width = end_x - start_x
         height = end_y - start_y
-        img = Image.open(image_file)
 
-        if img.size[0] < width*granularity or img.size[1] < height*granularity:
-            self.user_confirmation('Image resolution might be too low for '
-                                   'given bounding box and granularity. Mark '
-                                   'anyway?')
+        with open(image_file, 'rb') as img_file:
+            with Image.open(img_file) as img:
 
-        img = img.resize((width*granularity, height*granularity),
-                         Image.ANTIALIAS)
-        granularity = float(granularity)
-        img_bw = img.convert('1')
-        for x in range(0, img_bw.size[0]):
-            for y in range(0, img_bw.size[1]):
-                pixel_value = img_bw.getpixel((x, y))
-                if pixel_value == 0:
-                    self.move_abs(start_x+(x*(1/granularity)),
-                                  start_y+(y*(1/granularity)))
-                    self.needle_down()
+                if img.size[0] < width*granularity or \
+                        img.size[1] < height*granularity:
+
+                    self.user_confirmation('Image resolution might be too low '
+                                           'for given bounding box and '
+                                           'granularity. Mark anyway?')
+
+                img = img.resize((width*granularity, height*granularity),
+                                 Image.ANTIALIAS)
+                granularity = float(granularity)
+                img_bw = img.convert('1')
+
+                for x in range(0, img_bw.size[0]):
+                    for y in range(0, img_bw.size[1]):
+                        pixel_value = img_bw.getpixel((x, y))
+                        if pixel_value == 0:
+                            self.move_abs(start_x+(x*(1/granularity)),
+                                          start_y+(y*(1/granularity)))
+                            self.needle_down()
 
     def check(self, rds=10, preview_file='preview.png', dont_ask=False):
         start = datetime.now()
 
         white = (255, 255, 255)
         black = (0, 0, 0)
+
+        # we'll work with large image sizes, so it's better to disable warnings
+        warnings.simplefilter('ignore', Image.DecompressionBombWarning)
 
         im = Image.new('RGB', (int(self.MAX_X*100), int(self.MAX_Y*100)),
                        white)

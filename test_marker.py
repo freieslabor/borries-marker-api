@@ -120,14 +120,14 @@ class MarkerTest(object):
         cmd = ['socat', '-d', '-d', 'pty,raw,echo=0', 'pty,raw,echo=0']
         try:
             self.socat = sp.Popen(cmd, stdout=sp.PIPE, stderr=sp.STDOUT)
+            with self.socat.stdout as stdout:
+                marker_pty = stdout.readline().split()[-1]
+                if not os.path.exists(marker_pty):
+                    raise Exception('PTY creation failed.')
+
+                client_pty = stdout.readline().split()[-1]
         except OSError:
             raise Exception('%s is not installed' % cmd[0])
-
-        marker_pty = self.socat.stdout.readline().split()[-1]
-        if not os.path.exists(marker_pty):
-            raise Exception('PTY creation failed.')
-
-        client_pty = self.socat.stdout.readline().split()[-1]
 
         self.marker_emu = MarkerEmulator(str(marker_pty, encoding='UTF-8'))
         self.marker_emu.start()
@@ -240,8 +240,10 @@ class MarkerImageTest(MarkerTest, unittest.TestCase):
         self.assertGreater(datetime.now(), mod_datetime)
 
         # check that the file is not empty
-        img = Image.open(preview_file)
-        self.assertTrue(any([col[0] != col[1] for col in img.getextrema()]))
+        with open(preview_file, 'rb') as img_file:
+            with Image.open(img_file) as img:
+                extrema_diff = [col[0] != col[1] for col in img.getextrema()]
+                self.assertTrue(any(extrema_diff))
 
 
 if __name__ == '__main__':
