@@ -110,7 +110,7 @@ class Marker(threading.Thread):
 
     def read(self, size=102400):
         """Reads given amount of bytes in buffer and logs them."""
-        self.read_buf += self.__serial.read(size)
+        self.read_buf += str(self.__serial.read(size), encoding='UTF-8')
         while '\r' in self.read_buf:
             answer, self.read_buf = self.read_buf.split('\r', 1)
             logging.debug('read: %s' % answer)
@@ -153,7 +153,7 @@ class Marker(threading.Thread):
         # make sure write buffer won't get send anymore
         self.running = False
         # do not use write buffer, send directly
-        self.__serial.write(EMERGENCY_OFF)
+        self.__serial.write(EMERGENCY_OFF.encode())
         self.__serial.flush()
         err = 'Emergency off triggered by %s' % cause
         logging.error(err)
@@ -274,7 +274,7 @@ class Marker(threading.Thread):
 
             while ';;' in self.write_buf and self.running:
                 datagram, self.write_buf = self.write_buf.split(';;', 1)
-                self.__serial.write(';%s;' % datagram)
+                self.__serial.write((';%s;' % datagram).encode())
                 logging.debug('write: ;%s;' % datagram)
                 self.read()
                 self.__serial.flush()

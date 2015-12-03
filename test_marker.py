@@ -88,11 +88,11 @@ class MarkerEmulator(threading.Thread):
 
     def read(self, size=128):
         """Reads given amount of bytes in buffer."""
-        self.read_buf += self.serial.read(size)
+        self.read_buf += str(self.serial.read(size), encoding='UTF-8')
 
     def write(self, cmd, count=1):
         for i in range(count):
-            self.serial.write('%s\r' % cmd)
+            self.serial.write(('%s\r' % cmd).encode())
 
     def __command_seen(self, cmd):
         """Remove command from read buffer."""
@@ -129,10 +129,10 @@ class MarkerTest(object):
 
         client_pty = self.socat.stdout.readline().split()[-1]
 
-        self.marker_emu = MarkerEmulator(marker_pty)
+        self.marker_emu = MarkerEmulator(str(marker_pty, encoding='UTF-8'))
         self.marker_emu.start()
 
-        self.marker_client = Marker(client_pty,
+        self.marker_client = Marker(str(client_pty, encoding='UTF-8'),
                                     initial_check=self.initial_check)
         self.marker_client.start()
 
