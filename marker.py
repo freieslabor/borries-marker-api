@@ -83,6 +83,7 @@ class Marker(threading.Thread):
 
     daemon = True
     running = True
+    start_time = None
 
     def __init__(self, device, slow_motion=False, initial_check=False,
                  log_level=logging.INFO):
@@ -98,7 +99,6 @@ class Marker(threading.Thread):
         self.count = {
             'ST': SerialAnswer(.5),  # movement
         }
-        self.start_time = datetime.now()
 
         if slow_motion:
             self.write_buf += INIT % (650, 650, 220)
@@ -121,16 +121,22 @@ class Marker(threading.Thread):
             if prefix in self.count:
                 count = self.count[prefix]
                 self.count[prefix].increment_done()
-                runtime = (self.start_time - datetime.now()).seconds
-                eta = timedelta(seconds=(100 / count.perc_done) * runtime)
 
-                days, seconds = eta.days, eta.seconds
-                hrs = days * 24 + seconds // 3600
-                min = (seconds % 3600) // 60
-                sec = seconds % 60
+                if count.done > 0 and not self.start_time:
+                    self.start_time = datetime.now()
 
-                logging.info('%s %s executed; %.2f%%; ETA: %02d:%02d:%02d.' %
-                             (count, prefix, count.perc_done, hrs, min, sec))
+                # start estimation when enough data is available
+                if self.start_time and count.done > 2:
+                    runtime = (datetime.now() - self.start_time).seconds
+                    eta = timedelta(seconds=(runtime * (1 - (count.perc_done/100.0))) / (count.perc_done/100.0))
+
+                    days, seconds = eta.days, eta.seconds
+                    hrs = days * 24 + seconds // 3600
+                    min = (seconds % 3600) // 60
+                    sec = seconds % 60
+
+                    logging.info('%s %s executed; %.2f%%; ETA: %02d:%02d:%02d.' %
+                                 (count, prefix, count.perc_done, hrs, min, sec))
 
     def position(self):
         """Returns x and y position as tuple."""
