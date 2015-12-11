@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.5
 # -*- coding: utf-8 -*-
 
 import re
@@ -91,6 +91,7 @@ class MarkerEmulator(threading.Thread):
         self.read_buf += str(self.serial.read(size), encoding='UTF-8')
 
     def write(self, cmd, count=1):
+        """Writes given command count times to serial device."""
         for i in range(count):
             self.serial.write(('%s\r' % cmd).encode())
 
@@ -106,7 +107,9 @@ class MarkerEmulator(threading.Thread):
 
 
 class MarkerTest(object):
+    """Implements methods necessary for unit tests."""
     def __init__(self, *args, **kwargs):
+        """Initializes test with or without initial preview check."""
         if 'initial_check' in kwargs:
             self.initial_check = kwargs['initial_check']
             del kwargs['initial_check']
@@ -116,6 +119,7 @@ class MarkerTest(object):
         super(MarkerTest, self).__init__(*args, **kwargs)
 
     def setUp(self):
+        """Prepare PTYs, MarkerEmulator and Marker."""
         # create two connected PTYs
         cmd = ['socat', '-d', '-d', 'pty,raw,echo=0', 'pty,raw,echo=0']
         try:
@@ -142,6 +146,7 @@ class MarkerTest(object):
                 time.sleep(.1)
 
     def tearDown(self):
+        """Clean up and shut down."""
         self.marker_client.running = False
         del self.marker_client
         self.marker_emu.running = False
@@ -149,11 +154,12 @@ class MarkerTest(object):
         os.kill(self.socat.pid, signal.SIGINT)
 
     def check_commands_executed(self):
-        # check if all commands that got sent were executed
+        """Checks if all commands that got sent were executed."""
         self.assertEqual(self.marker_client.count['ST'].done,
                          self.marker_client.count['ST'].tbd)
 
     def move(self, move_method, *args, **kwargs):
+        """Move test wrapper."""
         done_before = self.marker_client.count['ST'].done
         move_method(*args, **kwargs)
         time.sleep(1)
@@ -161,18 +167,22 @@ class MarkerTest(object):
         self.assertEqual(self.marker_client.count['ST'].done, done_before + 1)
 
     def random_x_position(self, min=0.01, max=None):
+        """Returns a random, but valid x position."""
         if max is None:
             max = self.marker_client.MAX_X
         return random.randint(min*100, max*100) / 100.0
 
     def random_y_position(self, min=0.01, max=None):
+        """Returns a random, but valid y position."""
         if max is None:
             max = self.marker_client.MAX_Y
         return random.randint(min*100, max*100) / 100.0
 
 
 class MarkerBasicTest(MarkerTest, unittest.TestCase):
+    """Performs basic marker tests."""
     def test_absolute_move(self):
+        """Tests absolute movements."""
         new_pos = (self.random_x_position(), self.random_y_position())
         self.move(self.marker_client.move_abs, new_pos[0], new_pos[1])
         x, y = self.marker_client.position()
@@ -181,6 +191,7 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         self.assertEqual(y, new_pos[1])
 
     def test_relative_move(self):
+        """Tests relative movements."""
         x_old, y_old = self.marker_client.position()
         rel_x = self.marker_client.MAX_X - x_old
         rel_y = self.marker_client.MAX_Y - y_old
@@ -193,6 +204,7 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         self.assertEqual(y_old + steps[1], y)
 
     def test_needle_down(self):
+        """Tests needle down functionality."""
         done_before = self.marker_client.count['ST'].done
         self.marker_client.needle_down()
         time.sleep(1)
@@ -200,6 +212,7 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         self.assertEqual(self.marker_client.count['ST'].done, done_before + 1)
 
     def test_home(self):
+        """Tests movement to home position."""
         self.marker_client.home()
         x, y = self.marker_client.position()
         time.sleep(1)
@@ -208,11 +221,13 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         self.check_commands_executed()
 
     def test_max_limit(self):
+        """Tests marker limit."""
         with self.assertRaises(Exception):
             self.marker_client.move_abs(1000, 1000)
             time.sleep(1)
 
     def test_emergency_exit(self):
+        """Tests emergency exit function."""
         self.marker_client.move_abs(100, 100)
         with self.assertRaises(Exception):
             time.sleep(1)
@@ -220,11 +235,14 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
 
 
 class MarkerImageTest(MarkerTest, unittest.TestCase):
+    """Performs image tests."""
     def __init__(self, *args, **kwargs):
+        """Initializes marker test with initial preview check."""
         super(MarkerImageTest, self).__init__(*args, initial_check=True,
                                               **kwargs)
 
     def test_image(self):
+        """Tests image marking."""
         self.marker_client.mark_picture('Logo_quadratisch.png', (0, 0, 30, 30),
                                         granularity=5)
 

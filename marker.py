@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3.5
 # -*- coding: utf-8 -*-
 
 import threading
@@ -53,17 +53,21 @@ class SerialAnswer(object):
 
     @property
     def done(self):
+        """Number of successfull commands."""
         return self.__done * self.multiplier
 
     @property
     def ready(self):
+        """True if all commands were executed successfull, False otherwise."""
         return self.done == self.tbd
 
     @property
     def perc_done(self):
+        """Percentage, e.g. 14.22."""
         return (self.done / float(self.tbd)) * 100
 
     def increment_done(self):
+        """Increment done counter."""
         self.__done += 1
 
     def __str__(self):
@@ -78,6 +82,7 @@ class Marker(threading.Thread):
     __x = 0
     __y = 0
 
+    # command buffers
     read_buf = r''
     write_buf = r''
 
@@ -100,6 +105,7 @@ class Marker(threading.Thread):
             'ST': SerialAnswer(.5),  # movement
         }
 
+        # slow motion mode
         if slow_motion:
             self.write_buf += INIT % (650, 650, 220)
         else:
@@ -128,15 +134,19 @@ class Marker(threading.Thread):
                 # start estimation when enough data is available
                 if self.start_time and count.done > 2:
                     runtime = (datetime.now() - self.start_time).seconds
-                    eta = timedelta(seconds=(runtime * (1 - (count.perc_done/100.0))) / (count.perc_done/100.0))
+                    eta_seconds = (runtime * (1 - (count.perc_done/100.0))) / \
+                        (count.perc_done/100.0)
+                    eta = timedelta(seconds=eta_seconds)
 
                     days, seconds = eta.days, eta.seconds
                     hrs = days * 24 + seconds // 3600
                     min = (seconds % 3600) // 60
                     sec = seconds % 60
 
-                    logging.info('%s %s executed; %.2f%%; ETA: %02d:%02d:%02d.' %
-                                 (count, prefix, count.perc_done, hrs, min, sec))
+                    logging.info('%s %s executed; %.2f%%; ETA: '
+                                 '%02d:%02d:%02d.' % (count, prefix,
+                                                      count.perc_done,
+                                                      hrs, min, sec))
 
     def position(self):
         """Returns x and y position as tuple."""
@@ -201,7 +211,7 @@ class Marker(threading.Thread):
 
         with open(image_file, 'rb') as img_file:
             with Image.open(img_file) as img:
-
+                # resolution too low
                 if img.size[0] < width*granularity or \
                         img.size[1] < height*granularity:
 
@@ -214,6 +224,7 @@ class Marker(threading.Thread):
                 granularity = float(granularity)
                 img_bw = img.convert('1')
 
+                # do the actual pixel marking
                 for x in range(0, img_bw.size[0]):
                     for y in range(0, img_bw.size[1]):
                         pixel_value = img_bw.getpixel((x, y))
@@ -223,6 +234,7 @@ class Marker(threading.Thread):
                             self.needle_down()
 
     def check(self, rds=10, preview_file='preview.png', dont_ask=False):
+        """Preview marking points in png before marking starts."""
         start = datetime.now()
 
         white = (255, 255, 255)
@@ -235,12 +247,15 @@ class Marker(threading.Thread):
                        white)
         draw = ImageDraw.Draw(im)
 
+        # use regular expressions to prevent marking failures
         move_re = re.escape(MOVE).replace('\\%02\\.2f', '(\-?\d+\.\d\d)')
         move_re_cmpld = re.compile(move_re)
         x, y = (0, 0)
         pos = 0
 
+        # find needle down commands
         for n in re.finditer(re.escape(NEEDLE), self.write_buf):
+            # search for move commands between last and current needle down
             for move in move_re_cmpld.findall(self.write_buf[pos:n.start()]):
                 x_rel, y_rel = move
                 x += float(x_rel)
@@ -253,6 +268,7 @@ class Marker(threading.Thread):
                 assert 0 <= y <= self.MAX_Y, 'y value %02.2f not in range.' % y
 
             pos = n.start()
+            # draw marking point with given radius
             draw.ellipse((x*100-rds, y*100-rds, x*100+rds, y*100+rds), black)
 
         im.save(preview_file)
@@ -269,6 +285,7 @@ class Marker(threading.Thread):
         self.checked = True
 
     def user_confirmation(self, question):
+        """Show y/n user confirmation dialog."""
         cont = ' '
         while cont.lower() not in ['y', 'n']:
             cont = raw_input('%s [y/n]' % question)
@@ -280,13 +297,16 @@ class Marker(threading.Thread):
 
     def run(self):
         """Thread loop."""
+        # if preview check is enabled, wait for confirmation
         while not self.checked:
             pass
 
         while self.running:
             if ';;' not in self.write_buf:
+                # send heartbeat when there's nothing else to do
                 self.write_buf += ';*SH;;*SH;'
 
+            # write/read commands to/from buffer
             while ';;' in self.write_buf and self.running:
                 datagram, self.write_buf = self.write_buf.split(';;', 1)
                 self.__serial.write((';%s;' % datagram).encode())
