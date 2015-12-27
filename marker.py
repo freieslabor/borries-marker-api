@@ -95,6 +95,7 @@ class Marker(threading.Thread):
 
         """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
+        self.lock = threading.RLock()
         logging.basicConfig(level=log_level,
                             format='%(asctime)s %(levelname)-8s %(message)s',
                             datefmt='%H:%M:%S')
@@ -304,15 +305,17 @@ class Marker(threading.Thread):
         while self.running:
             if ';;' not in self.write_buf:
                 # send heartbeat when there's nothing else to do
-                self.write_buf += ';*SH;;*SH;'
+                with self.lock:
+                    self.write_buf += ';*SH;;*SH;'
 
             # write/read commands to/from buffer
             while ';;' in self.write_buf and self.running:
-                datagram, self.write_buf = self.write_buf.split(';;', 1)
-                self.__serial.write((';%s;' % datagram).encode())
-                logging.debug('write: ;%s;' % datagram)
-                self.read()
-                self.__serial.flush()
+                with self.lock:
+                    datagram, self.write_buf = self.write_buf.split(';;', 1)
+                    self.__serial.write((';%s;' % datagram).encode())
+                    logging.debug('write: ;%s;' % datagram)
+                    self.read()
+                    self.__serial.flush()
 
             time.sleep(.1)
 
