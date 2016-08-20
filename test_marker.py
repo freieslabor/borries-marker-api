@@ -263,6 +263,8 @@ class MarkerImageTest(MarkerTest, unittest.TestCase):
                 extrema_diff = [col[0] != col[1] for col in img.getextrema()]
                 self.assertTrue(any(extrema_diff))
 
+        time.sleep(100)
+        self.check_commands_executed()
 
 if __name__ == '__main__':
     unittest.main()

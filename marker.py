@@ -91,7 +91,7 @@ class Marker(threading.Thread):
     start_time = None
 
     def __init__(self, device, slow_motion=False, initial_check=False,
-                 log_level=logging.INFO):
+                 log_level=logging.DEBUG):
 
         """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
