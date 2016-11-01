@@ -1,0 +1,3 @@
+[submodule "MarkerWebControl"]
+	path = MarkerWebControl
+	url = https://github.com/freieslabor/MarkerWebControl.git
