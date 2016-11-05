@@ -166,6 +166,24 @@ class RRApi(object):
         return Response(text=json.dumps(result),
                         content_type='application/json')
 
+    async def rr_move(self, request):
+        try:
+            old_file_path = self.get_path(request, 'old')
+            new_file_path = self.get_path(request, 'new')
+
+            if os.path.exists(new_file_path):
+                raise Exception('Target file exists')
+
+            new_file_path = self.get_path(request, 'new')
+
+            os.rename(old_file_path, new_file_path)
+            result = {'err': 0}
+        except:
+            result = {'err': 1}
+
+        return Response(text=json.dumps(result),
+                        content_type='application/json')
+
     async def rr_upload(self, request):
         file_path = self.get_path(request, 'name')
         reader = await request.multipart()

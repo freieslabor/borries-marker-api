@@ -61,6 +61,7 @@ def run():
     app.router.add_route('*', '/rr_fileinfo', api.rr_fileinfo)
     app.router.add_route('*', '/rr_delete', api.rr_delete)
     app.router.add_route('*', '/rr_mkdir', api.rr_mkdir)
+    app.router.add_route('*', '/rr_move', api.rr_move)
     app.router.add_route('*', '/rr_download', api.rr_download)
     app.router.add_route('POST', '/rr_upload', api.rr_upload)
 
