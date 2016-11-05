@@ -12,11 +12,13 @@ import subprocess as sp
 import serial
 import threading
 import random
+import logging
 try:
     import Image
 except ImportError:
     from PIL import Image
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(levelname)-8s %(message)s', datefmt='%H:%M:%S')
 
 # send commands
 HEARTBEAT_OUT = 'RSIX800O00'
@@ -58,33 +60,46 @@ class MarkerEmulator(threading.Thread):
         """Initializes emulator."""
         threading.Thread.__init__(self)
         self.serial = serial.Serial(dev, timeout=0)
+        self.answer_count = 0
 
     def answer(self):
         """Answer commands."""
+        answer_count_before = self.answer_count
         if re.search(INIT, self.read_buf):
             self.__command_seen(INIT)
             self.initialized = True
             self.write(ACK, 24)
+            self.answer_count += 1
 
         if self.initialized:
             if re.search(HOME, self.read_buf):
                 self.__command_seen(HOME)
                 self.write(ACK, 4)
+                self.answer_count += 1
 
             if re.search(MOVE, self.read_buf):
                 self.__command_seen(MOVE)
                 self.write(ACK, 2)
+                self.answer_count += 1
 
             if re.search(NEEDLE, self.read_buf):
                 self.__command_seen(NEEDLE)
                 self.write(ACK, 2)
+                self.answer_count += 1
 
             if re.search(EMERGENCY_OFF, self.read_buf):
                 self.__command_seen(EMERGENCY_OFF)
                 self.initialized = False
+                logging.debug("EMU: found EMERGENCY")
 
             if re.search(HEARTBEAT_IN, self.read_buf):
                 self.write(HEARTBEAT_OUT)
+                self.answer_count += 1
+
+        if self.answer_count != answer_count_before:
+            return True
+
+        return False
 
     def read(self, size=128):
         """Reads given amount of bytes in buffer."""
@@ -93,7 +108,8 @@ class MarkerEmulator(threading.Thread):
     def write(self, cmd, count=1):
         """Writes given command count times to serial device."""
         for i in range(count):
-            self.serial.write(('%s\r' % cmd).encode())
+            l = self.serial.write(('%s\r' % cmd).encode())
+            logging.debug("EMU: %d written" % l)
 
     def __command_seen(self, cmd):
         """Remove command from read buffer."""
@@ -101,25 +117,27 @@ class MarkerEmulator(threading.Thread):
 
     def run(self):
         while self.running:
+            logging.debug("EMU: read buf len: %d; answers: %d; %s" % (len(self.read_buf), self.answer_count, self.read_buf))
             self.read()
-            self.answer()
+            while self.answer():
+                logging.debug("answered")
+                pass
             time.sleep(.1)
+        logging.debug("GOOOOOOOOOODBYE")
+        quit()
 
 
 class MarkerTest(object):
     """Implements methods necessary for unit tests."""
     def __init__(self, *args, **kwargs):
         """Initializes test with or without initial preview check."""
-        if 'initial_check' in kwargs:
-            self.initial_check = kwargs['initial_check']
-            del kwargs['initial_check']
-        else:
-            self.initial_check = False
-
         super(MarkerTest, self).__init__(*args, **kwargs)
 
     def setUp(self):
         """Prepare PTYs, MarkerEmulator and Marker."""
+        logging.debug("setting up..")
+        self.running = True
+        """
         # create two connected PTYs
         cmd = ['socat', '-d', '-d', 'pty,raw,echo=0', 'pty,raw,echo=0']
         try:
@@ -132,26 +150,24 @@ class MarkerTest(object):
                 client_pty = stdout.readline().split()[-1]
         except OSError:
             raise Exception('%s is not installed' % cmd[0])
+        """
+        marker_pty = b'/dev/pts/3'
+        client_pty = b'/dev/pts/4'
 
         self.marker_emu = MarkerEmulator(str(marker_pty, encoding='UTF-8'))
         self.marker_emu.start()
 
-        self.marker_client = Marker(str(client_pty, encoding='UTF-8'),
-                                    initial_check=self.initial_check)
+        self.marker_client = Marker(str(client_pty, encoding='UTF-8'))
         self.marker_client.start()
-
-        # wait for marker being ready only when checks are turned off
-        if not self.initial_check:
-            while not self.marker_client.count['ST'].ready:
-                time.sleep(.1)
 
     def tearDown(self):
         """Clean up and shut down."""
+        logging.debug("tearing down..")
         self.marker_client.running = False
         del self.marker_client
         self.marker_emu.running = False
         del self.marker_emu
-        os.kill(self.socat.pid, signal.SIGINT)
+        #os.kill(self.socat.pid, signal.SIGINT)
 
     def check_commands_executed(self):
         """Checks if all commands that got sent were executed."""
@@ -181,7 +197,7 @@ class MarkerTest(object):
 
 class MarkerBasicTest(MarkerTest, unittest.TestCase):
     """Performs basic marker tests."""
-    def test_absolute_move(self):
+    def _test_absolute_move(self):
         """Tests absolute movements."""
         new_pos = (self.random_x_position(), self.random_y_position())
         self.move(self.marker_client.move_abs, new_pos[0], new_pos[1])
@@ -189,8 +205,9 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         # check if marker reached correct position
         self.assertEqual(x, new_pos[0])
         self.assertEqual(y, new_pos[1])
+        self.check_commands_executed()
 
-    def test_relative_move(self):
+    def _test_relative_move(self):
         """Tests relative movements."""
         x_old, y_old = self.marker_client.position()
         rel_x = self.marker_client.MAX_X - x_old
@@ -202,16 +219,18 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         # check if marker reached correct position
         self.assertEqual(x_old + steps[0], x)
         self.assertEqual(y_old + steps[1], y)
+        self.check_commands_executed()
 
-    def test_needle_down(self):
+    def _test_needle_down(self):
         """Tests needle down functionality."""
         done_before = self.marker_client.count['ST'].done
         self.marker_client.needle_down()
         time.sleep(1)
         self.check_commands_executed()
         self.assertEqual(self.marker_client.count['ST'].done, done_before + 1)
+        self.check_commands_executed()
 
-    def test_home(self):
+    def _test_home(self):
         """Tests movement to home position."""
         self.marker_client.home()
         x, y = self.marker_client.position()
@@ -220,13 +239,13 @@ class MarkerBasicTest(MarkerTest, unittest.TestCase):
         self.assertEqual(y, 0)
         self.check_commands_executed()
 
-    def test_max_limit(self):
+    def _test_max_limit(self):
         """Tests marker limit."""
         with self.assertRaises(Exception):
             self.marker_client.move_abs(1000, 1000)
             time.sleep(1)
 
-    def test_emergency_exit(self):
+    def _test_emergency_exit(self):
         """Tests emergency exit function."""
         self.marker_client.move_abs(100, 100)
         with self.assertRaises(Exception):
@@ -238,14 +257,15 @@ class MarkerImageTest(MarkerTest, unittest.TestCase):
     """Performs image tests."""
     def __init__(self, *args, **kwargs):
         """Initializes marker test with initial preview check."""
-        super(MarkerImageTest, self).__init__(*args, initial_check=True,
-                                              **kwargs)
+        super(MarkerImageTest, self).__init__(*args, **kwargs)
 
     def test_image(self):
         """Tests image marking."""
+        logging.debug("starting image marking")
         self.marker_client.mark_picture('Logo_quadratisch.png', (0, 0, 30, 30),
                                         granularity=5)
 
+        """
         preview_file = 'preview_unittest.png'
         self.marker_client.check(preview_file=preview_file,
                                  dont_ask=True)
@@ -262,7 +282,9 @@ class MarkerImageTest(MarkerTest, unittest.TestCase):
             with Image.open(img_file) as img:
                 extrema_diff = [col[0] != col[1] for col in img.getextrema()]
                 self.assertTrue(any(extrema_diff))
-
+        """
+        time.sleep(300)
+        self.check_commands_executed()
 
 if __name__ == '__main__':
     unittest.main()

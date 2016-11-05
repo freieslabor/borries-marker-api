@@ -90,8 +90,7 @@ class Marker(threading.Thread):
     running = True
     start_time = None
 
-    def __init__(self, device, slow_motion=False, initial_check=False,
-                 log_level=logging.INFO):
+    def __init__(self, device, slow_motion=False, log_level=logging.DEBUG):
 
         """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
@@ -100,7 +99,6 @@ class Marker(threading.Thread):
                             format='%(asctime)s %(levelname)-8s %(message)s',
                             datefmt='%H:%M:%S')
         self.__serial = serial.Serial(device, timeout=0)
-        self.checked = not initial_check
         # count<prefix of answer, SerialAnswer object>
         self.count = {
             'ST': SerialAnswer(.5),  # movement
@@ -169,6 +167,7 @@ class Marker(threading.Thread):
     def emergency_off(self, cause='client'):
         """Sends emergency off sequence."""
         # make sure write buffer won't get send anymore
+        logging.error("EMERGENCY OFF")
         self.running = False
         # do not use write buffer, send directly
         self.__serial.write(EMERGENCY_OFF.encode())
@@ -210,6 +209,8 @@ class Marker(threading.Thread):
         width = end_x - start_x
         height = end_y - start_y
 
+        logging.debug("start marking pic")
+
         with open(image_file, 'rb') as img_file:
             with Image.open(img_file) as img:
                 # resolution too low
@@ -233,11 +234,11 @@ class Marker(threading.Thread):
                             self.move_abs(start_x+(x*(1/granularity)),
                                           start_y+(y*(1/granularity)))
                             self.needle_down()
+                            logging.debug("marking %d/%d" % (start_x+(x*(1/granularity)), start_y+(y*(1/granularity))))
+                            time.sleep(.01)
 
-    def check(self, rds=10, preview_file='preview.png', dont_ask=False):
+    def preview(self, rds=10, preview_file='preview.png'):
         """Preview marking points in png before marking starts."""
-        start = datetime.now()
-
         white = (255, 255, 255)
         black = (0, 0, 0)
 
@@ -274,22 +275,11 @@ class Marker(threading.Thread):
 
         im.save(preview_file)
 
-        # preview check by user
-        logging.info('Preview saved as %s (took %s). Please check it.'
-                     % (preview_file, datetime.now() - start))
-
-        # preview check by user
-        if not dont_ask:
-            if not self.user_confirmation('Start marking?'):
-                quit()
-
-        self.checked = True
-
     def user_confirmation(self, question):
         """Show y/n user confirmation dialog."""
         cont = ' '
         while cont.lower() not in ['y', 'n']:
-            cont = raw_input('%s [y/n]' % question)
+            cont = input('%s [y/n]' % question)
 
         if cont.lower() == 'y':
             return True
@@ -298,9 +288,6 @@ class Marker(threading.Thread):
 
     def run(self):
         """Thread loop."""
-        # if preview check is enabled, wait for confirmation
-        while not self.checked:
-            pass
 
         while self.running:
             if ';;' not in self.write_buf:
@@ -318,6 +305,9 @@ class Marker(threading.Thread):
                     self.__serial.flush()
 
             time.sleep(.1)
+        logging.debug("AND WE ARE DONE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        time.sleep(3)
+        quit()
 
 
 if __name__ == '__main__':
