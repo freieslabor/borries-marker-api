@@ -13,7 +13,7 @@ class RRApi(object):
         # FIXME: implement auth
         response = {
             'err': 0,
-            'sessionTimeout': 500,
+            'sessionTimeout': 500, # is this ok?
             'boardType': 'Borries Marker'
         }
         return Response(text=json.dumps(response),
@@ -25,22 +25,22 @@ class RRApi(object):
     async def rr_status(self, request):
         # FIXME: remove static values
         response = {
-          'status': 'I',
+          'status': 'I', # dyn
           'coords': {
-            'axesHomed': [0, 0, 1],
+            'axesHomed': [0, 0, 1], # dyn
             'extr': [0.0, 0.0, 0.0],
-            'xyz': [0.0, 0.0, 0.0],
+            'xyz': [0.0, 0.0, 0.0], # dyn
           },
           'output': {
-            # 'message': '...',
+            # 'message': '...', # dyn?
           },
           'params': {
             'atxPower': 1,
             'fanPercent': 0,
-            'speedFactor': 1.0,
+            'speedFactor': 100.0, # dyn
             'extrFactors': []
           },
-          'seq': 0,
+          'seq': 0, # dyn
           'sensors': {
             'probeValue': 0,
             'fanRPM': 0,
@@ -53,20 +53,20 @@ class RRApi(object):
               'state': [],
             }
           },
-          'time': 0,
+          'time': 0, # dyn
           'name': 'Borries Marker 320-DP',
-          'currentLayer': 0,
-          'currentLayerTime': 0.0,
+          'currentLayer': 0, # is it 0?
+          'currentLayerTime': 0.0, # dyn
           'extrRaw': [],
-          'fractionPrinted': 0.0,
+          'fractionPrinted': 0.0, # dyn
           'firstLayerDuration': 0.0,
-          'firstLayerHeight': 0.0,
-          'printDuration': 0.0,
+          'firstLayerHeight': 0.0, # should it be 0?
+          'printDuration': 0.0, # dyn
           'warmUpDuration': 0.0,
           'timesLeft': {
-            'file': 0.0,
-            'filament': 0.0,
-            'layer': 0.0,
+            'file': 0.0, # dyn
+            'filament': 0.0, # ?
+            'layer': 0.0, # ?
           }
         }
         return Response(text=json.dumps(response),
@@ -76,15 +76,15 @@ class RRApi(object):
         # FIXME: remove static values
         response = {
             'axisMins': [0.0, 0.0],
-            'axisMaxes': [0.0, 0.0],
-            'accelerations': [0.0, 0.0],
+            'axisMaxes': [0.0, 0.0], # set to Borries maxes
+            'accelerations': [0.0, 0.0], # need this?
             'firmwareElectronics': 'Borries Marker 320-DP',
             'firmwareName': 'borries-marker-api',
-            'firmwareVersion': '0.1',
-            'firmwareDate': '1970-01-01',
+            'firmwareVersion': '0.1', # do something smart with git?
+            'firmwareDate': '1970-01-01', # do something smart with git?
             'minFeedrates': [0.0, 0.0],
             'maxFeedrates': [0.0, 0.0],
-            'configFile': 'not found'
+            'configFile': 'not found' # need this?
         }
 
         return Response(text=json.dumps(response),
