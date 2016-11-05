@@ -8,7 +8,7 @@ import os
 
 
 class RRApi(object):
-    ALLOWED_DIRECTORIES = ['gcodes', 'sys', 'macros']
+    ALLOWED_DIRECTORIES = ['gcodes', 'macros']
     async def rr_connect(self, request):
         # FIXME: implement auth
         response = {
@@ -69,6 +69,24 @@ class RRApi(object):
             'layer': 0.0,
           }
         }
+        return Response(text=json.dumps(response),
+                        content_type='application/json')
+
+    async def rr_config(self, request):
+        # FIXME: remove static values
+        response = {
+            'axisMins': [0.0, 0.0],
+            'axisMaxes': [0.0, 0.0],
+            'accelerations': [0.0, 0.0],
+            'firmwareElectronics': 'Borries Marker 320-DP',
+            'firmwareName': 'borries-marker-api',
+            'firmwareVersion': '0.1',
+            'firmwareDate': '1970-01-01',
+            'minFeedrates': [0.0, 0.0],
+            'maxFeedrates': [0.0, 0.0],
+            'configFile': 'not found'
+        }
+
         return Response(text=json.dumps(response),
                         content_type='application/json')
 

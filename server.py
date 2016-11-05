@@ -56,6 +56,7 @@ def run():
     app.router.add_route('*', '/rr_disconnect', api.rr_disconnect)
 
     app.router.add_route('*', '/rr_status', api.rr_status)
+    app.router.add_route('*', '/rr_config', api.rr_config)
 
     app.router.add_route('*', '/rr_filelist', api.rr_filelist)
     app.router.add_route('*', '/rr_fileinfo', api.rr_fileinfo)
