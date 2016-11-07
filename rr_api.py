@@ -6,9 +6,15 @@ from aiohttp.web import Response
 import json
 import os
 
+from gcode import GCodeToBorries
+
 
 class RRApi(object):
     ALLOWED_DIRECTORIES = ['gcodes', 'macros']
+
+    def __init__(self):
+        self.gcode_to_borries = GCodeToBorries()
+
     async def rr_connect(self, request):
         # FIXME: implement auth
         response = {
@@ -24,16 +30,23 @@ class RRApi(object):
 
     async def rr_status(self, request):
         # FIXME: remove static values
+        msg = self.gcode_to_borries.state['message']()
+        if msg:
+            output = {'message': '{} Will now trigger emergency off and reset'
+                      .format(msg)}
+            self.gcode_to_borries.M112()
+            self.gcode_to_borries.M999()
+        else:
+            output = {}
+
         response = {
-          'status': 'I', # dyn
+          'status': self.gcode_to_borries.state['status'],
           'coords': {
-            'axesHomed': [0, 0, 1], # dyn
+            'axesHomed': self.gcode_to_borries.state['axesHomed']() + [1],
             'extr': [0.0, 0.0, 0.0],
-            'xyz': [0.0, 0.0, 0.0], # dyn
+            'xyz': self.gcode_to_borries.state['position']() + (0.0,),
           },
-          'output': {
-            # 'message': '...', # dyn?
-          },
+          'output': output,
           'params': {
             'atxPower': 1,
             'fanPercent': 0,
@@ -230,8 +243,20 @@ class RRApi(object):
         return Response(text='', content_type='application/json')
 
     async def rr_gcode(self, request):
-        # FIXME: handle gcode
-        logging.info('Got gcode: {}'.format(request.GET['gcode']))
+        logging.info('Got gcode: {}'.format([request.GET['gcode']]))
+
+        for gcode in request.GET['gcode'].split('\n'):
+            if not gcode:
+                continue
+
+            try:
+                cmd, *params = gcode.split()
+                if len(cmd) == 2:
+                    cmd = '{}0{}'.format(cmd[0], cmd[1])
+                getattr(self.gcode_to_borries, cmd)(*params)
+            except AttributeError:
+                logging.error('GCode {} is not implemented'.format(cmd)
+                              .format(cmd, params))
 
         return Response(text=json.dumps({}),
                         content_type='application/json')

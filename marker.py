@@ -79,19 +79,7 @@ class Marker(threading.Thread):
     MAX_X = 122.5
     MAX_Y = 102.5
 
-    __x = 0
-    __y = 0
-
-    # command buffers
-    read_buf = r''
-    write_buf = r''
-
-    daemon = True
-    running = True
-    start_time = None
-
-    def __init__(self, device, slow_motion=False, initial_check=False,
-                 log_level=logging.DEBUG):
+    def __init__(self, device, slow_motion=False, log_level=logging.DEBUG):
 
         """Initializes marker and moves to home position."""
         threading.Thread.__init__(self)
@@ -99,8 +87,23 @@ class Marker(threading.Thread):
         logging.basicConfig(level=log_level,
                             format='%(asctime)s %(levelname)-8s %(message)s',
                             datefmt='%H:%M:%S')
+
+        self.__x = 0
+        self.__y = 0
+
+        # command buffers
+        self.read_buf = r''
+        self.write_buf = r''
+
+        self.daemon = True
+        self.running = True
+        self.start_time = None
+        self.error_message = None
+        self.homed = [0, 0]
+
         self.__serial = serial.Serial(device, timeout=0)
         self.checked = not initial_check
+        self.emergency_off_done = False
         # count<prefix of answer, SerialAnswer object>
         self.count = {
             'ST': SerialAnswer(.5),  # movement
@@ -114,7 +117,6 @@ class Marker(threading.Thread):
 
         # init sends 12 answers when done
         self.count['ST'].tbd += 12
-        self.home()
 
     def read(self, size=102400):
         """Reads given amount of bytes in buffer and logs them."""
@@ -153,6 +155,14 @@ class Marker(threading.Thread):
         """Returns x and y position as tuple."""
         return self.__x, self.__y
 
+    def error_msg(self):
+        """Returns error message or None in case of no error."""
+        return self.error_message
+
+    def homed_axes(self):
+        """Returns list of axes, 1 for homed otherwise 0."""
+        return self.homed
+
     def home(self):
         """Moves to home position and resets position counter."""
         # improve speed to home position: move to (1,1)
@@ -166,6 +176,8 @@ class Marker(threading.Thread):
         self.__x = 0
         self.__y = 0
 
+        self.homed = [1, 1]
+
     def emergency_off(self, cause='client'):
         """Sends emergency off sequence."""
         # make sure write buffer won't get send anymore
@@ -175,22 +187,29 @@ class Marker(threading.Thread):
         self.__serial.flush()
         err = 'Emergency off triggered by %s' % cause
         logging.error(err)
-        raise Exception(err)
+        self.emergency_off_done = True
 
     def move_rel(self, x, y):
         """Moves to given relative position."""
-        if 0 <= x + self.__x <= self.MAX_X and 0 <= y + self.__y <= self.MAX_Y:
-            x = round(x, 2)
-            y = round(y, 2)
-            self.write_buf += r';*PR%02.2f,%02.2f;;*SH;*OA;*SE;' % (x, y)
+        if not self.homed == [1, 1]:
+            self.error_message = 'Home all axes before moving around.'
+            self.emergency_off('Not all axes homed.')
 
-            self.__x = self.__x + x
-            self.__y = self.__y + y
-            self.count['ST'].tbd += 1
+        if not (0 <= x + self.__x <= self.MAX_X and
+                0 <= y + self.__y <= self.MAX_Y):
 
-        else:
+            self.error_message = '(%02.2f,%02.2f) out of bounds.' \
+                % (self.__x + x, self.__y + y)
             self.emergency_off('(%02.2f,%02.2f) out of bounds.'
                                % (self.__x + x, self.__y + y))
+
+        x = round(x, 2)
+        y = round(y, 2)
+        self.write_buf += r';*PR%02.2f,%02.2f;;*SH;*OA;*SE;' % (x, y)
+
+        self.__x = self.__x + x
+        self.__y = self.__y + y
+        self.count['ST'].tbd += 1
 
     def move_abs(self, x, y):
         """Moves to given absolute position."""
