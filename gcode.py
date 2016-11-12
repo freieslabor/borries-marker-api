@@ -4,6 +4,7 @@
 import logging
 import os
 import subprocess as sp
+import re
 
 from marker import Marker
 from test_marker import MarkerEmulator
@@ -33,7 +34,8 @@ class GCodeToBorries(object):
         self.marker.start()
         self.set_state_idle()
 
-        self.calc_groups = re.compile(r'\[.*\]')
+        self.variables = {}
+        self.calc_groups = re.compile(r'\[(.*)\]')
 
     def reset_state(self):
         self.state = {
@@ -53,14 +55,19 @@ class GCodeToBorries(object):
 
     def substitute_variables_calculate(self, params):
         for i in range(len(params)):
-            for var, value in self.variables:
+            # replace variables
+            for var, value in self.variables.items():
                 params[i] = params[i].replace('#{}'.format(var), value)
-                match = self.calc_groups.search(params[i])
-                for group in match.groups():
-                    params[i] = params[i].replace('[{}]'.format(group),
-                                                  eval(group))
-                    logging.info('Evaluated parameter {} to {}'
-                                 .format(group, eval(group)))
+
+            # evaluate expressions in brackets
+            match = self.calc_groups.search(params[i])
+            if match:
+                expr = match.groups()[0]
+                expr_evaluated = str(eval(expr))
+                params[i] = params[i].replace('[{}]'.format(expr),
+                                              expr_evaluated)
+                logging.info('Evaluated parameter {} to {}'
+                             .format(expr, expr_evaluated))
 
         return params
 
@@ -97,7 +104,7 @@ class GCodeToBorries(object):
                         params = [param for param in params if param]
                         self.variables[var] = params[1]
                         comment = ' '.join(params[2:])
-                        logging.info('Parsed variable {} with value {} ({})'
+                        logging.info('Parsed variable #{} with value "{}" {}'
                                      .format(var, params[1], comment))
                     else:
                         logging.error('GCode {} is not implemented'.format(cmd))
@@ -105,6 +112,12 @@ class GCodeToBorries(object):
     def M32(self, *params):
         self.M23(*params)
         self.M24()
+
+    def M98(self, *params):
+        """Execute GCodes in macro file."""
+        # ignore P and leading slash
+        macro_file = params[0][2:]
+        self.M24(macro=macro_file)
 
     def M112(self, *params):
         self.state['status'] = 'D'
