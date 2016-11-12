@@ -5,15 +5,7 @@ import threading
 import logging
 import time
 import serial
-import re
-import warnings
 from datetime import datetime, timedelta
-try:
-    import Image
-    import ImageDraw
-except ImportError:
-    from PIL import Image
-    from PIL import ImageDraw
 
 
 INIT = '*SQ;;*SQ;;*SQ;*CB;*INITstn;*INITzn;*DB;*CPa;*SE;*CPz;*CPd;' \
@@ -102,7 +94,6 @@ class Marker(threading.Thread):
         self.homed = [0, 0]
 
         self.__serial = serial.Serial(device, timeout=0)
-        self.checked = not initial_check
         self.emergency_off_done = False
         # count<prefix of answer, SerialAnswer object>
         self.count = {
@@ -222,105 +213,8 @@ class Marker(threading.Thread):
         self.write_buf += NEEDLE
         self.count['ST'].tbd += 1
 
-    def mark_picture(self, image_file, bounding_box, granularity=5):
-        """Takes an image and marks it in the given bounding box."""
-        # open image to file and convert to black and white
-        start_x, start_y, end_x, end_y = bounding_box
-        width = end_x - start_x
-        height = end_y - start_y
-
-        with open(image_file, 'rb') as img_file:
-            with Image.open(img_file) as img:
-                # resolution too low
-                if img.size[0] < width*granularity or \
-                        img.size[1] < height*granularity:
-
-                    self.user_confirmation('Image resolution might be too low '
-                                           'for given bounding box and '
-                                           'granularity. Mark anyway?')
-
-                img = img.resize((width*granularity, height*granularity),
-                                 Image.ANTIALIAS)
-                granularity = float(granularity)
-                img_bw = img.convert('1')
-
-                # do the actual pixel marking
-                for x in range(0, img_bw.size[0]):
-                    for y in range(0, img_bw.size[1]):
-                        pixel_value = img_bw.getpixel((x, y))
-                        if pixel_value == 0:
-                            self.move_abs(start_x+(x*(1/granularity)),
-                                          start_y+(y*(1/granularity)))
-                            self.needle_down()
-
-    def check(self, rds=10, preview_file='preview.png', dont_ask=False):
-        """Preview marking points in png before marking starts."""
-        start = datetime.now()
-
-        white = (255, 255, 255)
-        black = (0, 0, 0)
-
-        # we'll work with large image sizes, so it's better to disable warnings
-        warnings.simplefilter('ignore', Image.DecompressionBombWarning)
-
-        im = Image.new('RGB', (int(self.MAX_X*100), int(self.MAX_Y*100)),
-                       white)
-        draw = ImageDraw.Draw(im)
-
-        # use regular expressions to prevent marking failures
-        move_re = re.escape(MOVE).replace('\\%02\\.2f', '(\-?\d+\.\d\d)')
-        move_re_cmpld = re.compile(move_re)
-        x, y = (0, 0)
-        pos = 0
-
-        # find needle down commands
-        for n in re.finditer(re.escape(NEEDLE), self.write_buf):
-            # search for move commands between last and current needle down
-            for move in move_re_cmpld.findall(self.write_buf[pos:n.start()]):
-                x_rel, y_rel = move
-                x += float(x_rel)
-                y += float(y_rel)
-
-                x = round(x, 2)
-                y = round(y, 2)
-
-                assert 0 <= x <= self.MAX_X, 'x value %02.2f not in range.' % x
-                assert 0 <= y <= self.MAX_Y, 'y value %02.2f not in range.' % y
-
-            pos = n.start()
-            # draw marking point with given radius
-            draw.ellipse((x*100-rds, y*100-rds, x*100+rds, y*100+rds), black)
-
-        im.save(preview_file)
-
-        # preview check by user
-        logging.info('Preview saved as %s (took %s). Please check it.'
-                     % (preview_file, datetime.now() - start))
-
-        # preview check by user
-        if not dont_ask:
-            if not self.user_confirmation('Start marking?'):
-                quit()
-
-        self.checked = True
-
-    def user_confirmation(self, question):
-        """Show y/n user confirmation dialog."""
-        cont = ' '
-        while cont.lower() not in ['y', 'n']:
-            cont = raw_input('%s [y/n]' % question)
-
-        if cont.lower() == 'y':
-            return True
-
-        return False
-
     def run(self):
         """Thread loop."""
-        # if preview check is enabled, wait for confirmation
-        while not self.checked:
-            pass
-
         while self.running:
             if ';;' not in self.write_buf:
                 # send heartbeat when there's nothing else to do
@@ -340,13 +234,8 @@ class Marker(threading.Thread):
 
 
 if __name__ == '__main__':
-    m = Marker('/dev/ttyUSB1', initial_check=True)
+    m = Marker('/dev/ttyUSB1')
     m.start()
-
-    m.mark_picture('Logo_quadratisch.png', (0, 0, 50, 50))
-
-    # check
-    m.check()
 
     # move to home position for next session
     m.home()

@@ -255,8 +255,6 @@ class RRApi(object):
                     cmd = '{}0{}'.format(cmd[0], cmd[1])
                 getattr(self.gcode_to_borries, cmd)(*params)
             except AttributeError:
-                logging.error('GCode {} is not implemented'.format(cmd)
-                              .format(cmd, params))
-
+                logging.error('GCode {} is not implemented'.format(cmd))
         return Response(text=json.dumps({}),
                         content_type='application/json')
