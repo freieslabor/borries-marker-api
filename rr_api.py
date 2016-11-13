@@ -130,6 +130,10 @@ class RRApi(object):
         }
 
         for entry in os.scandir(file_path):
+            # do not list hidden files/directories
+            if entry.name.startswith('.'):
+                continue
+
             info = {
                 'name': entry.name,
                 'size': entry.stat().st_size,
