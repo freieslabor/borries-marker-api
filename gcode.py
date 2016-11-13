@@ -74,9 +74,13 @@ class GCodeToBorries(object):
     def M23(self, *params):
         self.state['selectedFile'] = params[0]
 
-    def M24(self, *params):
+    def M24(self, *params, macro=None):
         """Execute each GCode command in selected file."""
-        with open(self.state['selectedFile']) as f:
+        if macro:
+            file = macro
+        else:
+            file = os.path.join('gcodes', self.state['selectedFile'])
+        with open(file) as f:
             for line in f:
                 if line.strip() == '':
                     continue
