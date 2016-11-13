@@ -76,6 +76,7 @@ class GCodeToBorries(object):
 
     def M24(self, *params, macro=None):
         """Execute each GCode command in selected file."""
+        self.state['status'] = 'B'
         if macro:
             file = macro
         else:
@@ -112,6 +113,8 @@ class GCodeToBorries(object):
                                      .format(var, params[1], comment))
                     else:
                         logging.error('GCode {} is not implemented'.format(cmd))
+
+        self.state['status'] = 'I'
 
     def M32(self, *params):
         self.M23(*params)

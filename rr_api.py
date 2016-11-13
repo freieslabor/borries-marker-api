@@ -3,6 +3,7 @@
 
 import logging
 from aiohttp.web import Response
+import asyncio
 import json
 import os
 
@@ -248,6 +249,7 @@ class RRApi(object):
 
     async def rr_gcode(self, request):
         logging.info('Got gcode: {}'.format([request.GET['gcode']]))
+        loop = asyncio.get_event_loop()
 
         for gcode in request.GET['gcode'].split('\n'):
             if not gcode:
@@ -257,7 +259,8 @@ class RRApi(object):
                 cmd, *params = gcode.split()
                 if len(cmd) == 2:
                     cmd = '{}0{}'.format(cmd[0], cmd[1])
-                getattr(self.gcode_to_borries, cmd)(*params)
+                gcode_method = getattr(self.gcode_to_borries, cmd)
+                loop.run_in_executor(None, gcode_method, *params)
             except AttributeError:
                 logging.error('GCode {} is not implemented'.format(cmd))
         return Response(text=json.dumps({}),
