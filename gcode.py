@@ -38,6 +38,7 @@ class GCodeToBorries(object):
         self.calc_groups = re.compile(r'\[(.*)\]')
 
     def reset_state(self):
+        """Set state to defaults."""
         self.state = {
             'axesHomed': [0, 0, 1],
             'status': 'B',
@@ -48,12 +49,17 @@ class GCodeToBorries(object):
         }
 
     def set_state_idle(self):
+        """Set idle and dynamic state attributes."""
         self.state['status'] = 'I'
         self.state['position'] = self.marker.position
         self.state['message'] = self.marker.error_msg
         self.state['axesHomed'] = self.marker.homed_axes
 
     def substitute_variables_calculate(self, params):
+        """
+        Substitute variables in GCode commands and calculate inline
+        expressions.
+        """
         for i in range(len(params)):
             # replace variables
             for var, value in self.variables.items():
@@ -72,10 +78,11 @@ class GCodeToBorries(object):
         return params
 
     def M23(self, *params):
+        """Select file to mark."""
         self.state['selectedFile'] = params[0]
 
     def M24(self, *params, macro=None):
-        """Execute each GCode command in selected file."""
+        """Execute each GCode command in selected file or given macro."""
         self.state['status'] = 'B'
         if macro:
             file = macro
@@ -112,11 +119,13 @@ class GCodeToBorries(object):
                         logging.info('Parsed variable #{} with value "{}" {}'
                                      .format(var, params[1], comment))
                     else:
-                        logging.error('GCode {} is not implemented'.format(cmd))
+                        logging.error('GCode {} is not implemented'
+                                      .format(cmd))
 
         self.state['status'] = 'I'
 
     def M32(self, *params):
+        """Select file and start marking."""
         self.M23(*params)
         self.M24()
 
@@ -127,11 +136,13 @@ class GCodeToBorries(object):
         self.M24(macro=macro_file)
 
     def M112(self, *params):
+        """Emergency stop."""
         self.state['status'] = 'D'
         self.marker.emergency_off('webinterface')
         self.state['status'] = 'S'
 
     def M999(self, *params):
+        """Restart and reset marker."""
         self.state['status'] = 'R'
         logging.info('Restarting marker')
         while not self.marker.emergency_off_done:
@@ -143,11 +154,11 @@ class GCodeToBorries(object):
         logging.info('Restart done')
 
     def G00(self, *params):
-        """Rapid linear move"""
+        """Rapid linear move."""
         self.G01(*params)
 
     def G01(self, *params):
-        """Linear move"""
+        """Linear move."""
         x = y = 0
         for param in params:
             # ignore E and F parameters
@@ -156,7 +167,6 @@ class GCodeToBorries(object):
             elif param[0] == 'Y':
                 y = float(param[1:])
 
-        # FIXME: do the actual marking
         if self.state['absolutePositions']:
             self.marker.move_abs(x, y)
         else:
@@ -185,14 +195,17 @@ class GCodeToBorries(object):
         # FIXME: do something similar as G2, but counter-clockwise
 
     def G20(self, *params):
+        """Set unit to inches."""
         # FIXME: use unit
         self.state['unit'] = 'inch'
 
     def G21(self, *params):
+        """Set unit to mm."""
         # FIXME: use unit
         self.state['unit'] = 'mm'
 
     def G28(self, *params):
+        """Home axes."""
         if len(params) > 0:
             if params[0] == 'X':
                 logging.info('Homing X axis')
@@ -207,9 +220,11 @@ class GCodeToBorries(object):
             self.marker.home()
 
     def G90(self, *params):
+        """Absolute positioning."""
         logging.info('Switch to absolute positioning')
         self.state['absolutePositions'] = True
 
     def G91(self, *params):
+        """Relative positioning."""
         logging.info('Switch to relative positioning')
         self.state['absolutePositions'] = False
