@@ -173,26 +173,14 @@ class GCodeToBorries(object):
             self.marker.move_rel(x, y)
 
     def G02(self, *params):
-        """Clockwise arc move"""
-        x = y = i = j = 0
-        for param in params:
-            # ignore E and F parameters
-            if param[0] == 'X':
-                x = float(param[1:])
-            elif param[0] == 'Y':
-                y = float(param[1:])
-            elif param[0] == 'I':
-                i = float(param[1:])
-            elif param[0] == 'J':
-                j = float(param[1:])
-
-        # FIXME: calculate intermediate points on circle defined by current
-        # position, final position (X,Y) and circle center (as offset)
+        """Clockwise arc move."""
+        # FIXME: actually do an arc move
+        self.G01(*params)
 
     def G03(self, *params):
         """Counter-clockwise arc move"""
-
-        # FIXME: do something similar as G2, but counter-clockwise
+        # FIXME: actually do an arc move
+        self.G01(*params)
 
     def G20(self, *params):
         """Set unit to inches."""
