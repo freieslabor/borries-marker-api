@@ -153,6 +153,10 @@ class GCodeToBorries(object):
         self.marker.emergency_off('webinterface')
         self.state['status'] = 'S'
 
+    def M300(self, *params):
+        """Needle down (plays beep by definition)"""
+        self.marker.needle_down()
+
     def M999(self, *params):
         """Restart and reset marker."""
         self.state['status'] = 'R'
