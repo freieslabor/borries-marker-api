@@ -11,9 +11,18 @@ from test_marker import MarkerEmulator
 
 
 class GCodeToBorries(object):
-    def __init__(self):
+    def __init__(self, port='/dev/ttyUSB0'):
         """Prepare PTYs, MarkerEmulator and Marker."""
         self.reset_state()
+
+        if os.path.exists(port):
+            logging.info('Initializing marker on {}'.format(port))
+            self.start_marker(port)
+        else:
+            logging.info('{} not found. Emulating marker'.format(port))
+            self.init_emulator()
+
+    def init_emulator(self):
         # create two connected PTYs
         cmd = ['socat', '-d', '-d', 'pty,raw,echo=0', 'pty,raw,echo=0']
         try:
@@ -23,14 +32,17 @@ class GCodeToBorries(object):
                 if not os.path.exists(marker_pty):
                     raise Exception('PTY creation failed.')
 
-                self.client_pty = stdout.readline().split()[-1]
+                client_pty = stdout.readline().split()[-1]
         except OSError:
             raise Exception('%s is not installed' % cmd[0])
 
         self.marker_emu = MarkerEmulator(str(marker_pty, encoding='UTF-8'))
         self.marker_emu.start()
+        self.start_marker(str(client_pty, encoding='UTF-8'))
 
-        self.marker = Marker(str(self.client_pty, encoding='UTF-8'))
+    def start_marker(self, port):
+        self.port = port
+        self.marker = Marker(port)
         self.marker.start()
         self.set_state_idle()
 
@@ -147,7 +159,7 @@ class GCodeToBorries(object):
         logging.info('Restarting marker')
         while not self.marker.emergency_off_done:
             pass
-        self.marker = Marker(str(self.client_pty, encoding='UTF-8'))
+        self.marker = Marker(self.port)
         self.reset_state()
         self.marker.start()
         self.set_state_idle()
