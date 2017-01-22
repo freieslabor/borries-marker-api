@@ -28,10 +28,6 @@ async def language_xml(request):
     path = os.path.join(WEBCTRL_CORE, 'language.xml')
     return Response(body=open(path, 'rb').read(), content_type='text/html')
 
-async def test(request):
-    path = os.path.join(WEBCTRL_CORE, 'test.html')
-    return Response(body=open(path, 'rb').read(), content_type='text/html')
-
 
 def run():
     logging.basicConfig(level=logging.INFO, filename='marker.log')
@@ -48,7 +44,6 @@ def run():
     app.router.add_route('*', '/', index)
     app.router.add_route('*', '/index404.htm', index404)
     app.router.add_route('*', '/language.xml', language_xml)
-    app.router.add_route('*', '/test.html', test)
 
     # add API urls
     api = RRApi()
