@@ -180,19 +180,25 @@ class Marker(threading.Thread):
         logging.error(err)
         self.emergency_off_done = True
 
-    def move_rel(self, x, y):
+    def move_rel(self, x, y, batch=False):
         """Moves to given relative position."""
         if not self.homed == [1, 1]:
             self.error_message = 'Home all axes before moving around.'
-            self.emergency_off('Not all axes homed.')
+            if batch:
+                self.emergency_off('Not all axes homed.')
+            else:
+                return
 
         if not (0 <= x + self.__x <= self.MAX_X and
                 0 <= y + self.__y <= self.MAX_Y):
 
             self.error_message = '(%02.2f,%02.2f) out of bounds.' \
                 % (self.__x + x, self.__y + y)
-            self.emergency_off('(%02.2f,%02.2f) out of bounds.'
-                               % (self.__x + x, self.__y + y))
+            if batch:
+                self.emergency_off('(%02.2f,%02.2f) out of bounds.'
+                                   % (self.__x + x, self.__y + y))
+            else:
+                return
 
         x = round(x, 2)
         y = round(y, 2)
@@ -202,11 +208,11 @@ class Marker(threading.Thread):
         self.__y = self.__y + y
         self.count['ST'].tbd += 1
 
-    def move_abs(self, x, y):
+    def move_abs(self, x, y, batch=False):
         """Moves to given absolute position."""
         rel_x = x - self.__x
         rel_y = y - self.__y
-        self.move_rel(rel_x, rel_y)
+        self.move_rel(rel_x, rel_y, batch=batch)
 
     def needle_down(self):
         """Moves the needle marking unit down."""
