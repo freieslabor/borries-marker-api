@@ -33,10 +33,9 @@ class RRApi(object):
         # FIXME: remove static values
         msg = self.gcode_to_borries.state['message']()
         if msg:
-            output = {'message': '{} Will now trigger emergency off and reset'
-                      .format(msg)}
-            self.gcode_to_borries.M112()
-            self.gcode_to_borries.M999()
+            output = {'message': msg}
+            # FIXME: set this per remote
+            self.gcode_to_borries.marker.error_message = ''
         else:
             output = {}
 
