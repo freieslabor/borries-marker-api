@@ -89,11 +89,11 @@ class GCodeToBorries(object):
 
         return params
 
-    def M23(self, *params):
+    def M23(self, *params, batch=False):
         """Select file to mark."""
         self.state['selectedFile'] = params[0]
 
-    def M24(self, *params, macro=None):
+    def M24(self, *params, macro=None, batch=False):
         """Execute each GCode command in selected file or given macro."""
         self.state['status'] = 'B'
         if macro:
@@ -119,7 +119,7 @@ class GCodeToBorries(object):
                     cmd = '{}0{}'.format(cmd[0], cmd[1])
                 params = self.substitute_variables_calculate(params)
                 try:
-                    getattr(self, cmd)(*params)
+                    getattr(self, cmd)(*params, batch=True)
                 except AttributeError:
                     # variable parsing
                     if cmd[0] == '#':
@@ -136,28 +136,28 @@ class GCodeToBorries(object):
 
         self.state['status'] = 'I'
 
-    def M32(self, *params):
+    def M32(self, *params, batch=False):
         """Select file and start marking."""
         self.M23(*params)
         self.M24()
 
-    def M98(self, *params):
+    def M98(self, *params, batch=False):
         """Execute GCodes in macro file."""
         # ignore P and leading slash
         macro_file = params[0][2:]
         self.M24(macro=macro_file)
 
-    def M112(self, *params):
+    def M112(self, *params, batch=False):
         """Emergency stop."""
         self.state['status'] = 'D'
         self.marker.emergency_off('webinterface')
         self.state['status'] = 'S'
 
-    def M300(self, *params):
+    def M300(self, *params, batch=False):
         """Needle down (plays beep by definition)"""
         self.marker.needle_down()
 
-    def M999(self, *params):
+    def M999(self, *params, batch=False):
         """Restart and reset marker."""
         self.state['status'] = 'R'
         logging.info('Restarting marker')
@@ -169,11 +169,11 @@ class GCodeToBorries(object):
         self.set_state_idle()
         logging.info('Restart done')
 
-    def G00(self, *params):
+    def G00(self, *params, batch=False):
         """Rapid linear move."""
         self.G01(*params)
 
-    def G01(self, *params):
+    def G01(self, *params, batch=False):
         """Linear move."""
         x = y = 0
         for param in params:
@@ -184,31 +184,31 @@ class GCodeToBorries(object):
                 y = float(param[1:])
 
         if self.state['absolutePositions']:
-            self.marker.move_abs(x, y)
+            self.marker.move_abs(x, y, batch=batch)
         else:
-            self.marker.move_rel(x, y)
+            self.marker.move_rel(x, y, batch=batch)
 
-    def G02(self, *params):
+    def G02(self, *params, batch=False):
         """Clockwise arc move."""
         # FIXME: actually do an arc move
         self.G01(*params)
 
-    def G03(self, *params):
+    def G03(self, *params, batch=False):
         """Counter-clockwise arc move"""
         # FIXME: actually do an arc move
         self.G01(*params)
 
-    def G20(self, *params):
+    def G20(self, *params, batch=False):
         """Set unit to inches."""
         # FIXME: use unit
         self.state['unit'] = 'inch'
 
-    def G21(self, *params):
+    def G21(self, *params, batch=False):
         """Set unit to mm."""
         # FIXME: use unit
         self.state['unit'] = 'mm'
 
-    def G28(self, *params):
+    def G28(self, *params, batch=False):
         """Home axes."""
         if len(params) > 0:
             if params[0] == 'X':
@@ -223,12 +223,12 @@ class GCodeToBorries(object):
             logging.info('Homing X and Y axes')
             self.marker.home()
 
-    def G90(self, *params):
+    def G90(self, *params, batch=False):
         """Absolute positioning."""
         logging.info('Switch to absolute positioning')
         self.state['absolutePositions'] = True
 
-    def G91(self, *params):
+    def G91(self, *params, batch=False):
         """Relative positioning."""
         logging.info('Switch to relative positioning')
         self.state['absolutePositions'] = False
