@@ -117,8 +117,7 @@ class RRApi(object):
             else:
                 raise NotADirectoryError
         else:
-            # FIXME: default to file being printed
-            return os.path.join(os.path.dirname(__file__), '/gcodes/foo.gcode')
+            raise NotImplementedError('{} not in GET parameters'.format(get_param))
 
     async def rr_filelist(self, request):
         file_path = self.get_path(request, 'dir')
