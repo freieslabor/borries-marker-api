@@ -1,0 +1,6 @@
+[Unit]
+Description=Borries Marker
+
+[Service]
+WorkingDirectory=/opt/borries-marker-api/
+ExecStart=/opt/borries-marker-api/env/bin/python /opt/borries-marker-api/server.py %I

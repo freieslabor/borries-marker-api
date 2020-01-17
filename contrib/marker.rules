@@ -1,0 +1,2 @@
+ACTION=="add", SUBSYSTEM=="tty", RUN+="/bin/systemctl start marker@$env{DEVNAME}.service"
+ACTION=="remove", SUBSYSTEM=="tty", RUN+="/bin/systemctl stop marker@$env{DEVNAME}.service"
