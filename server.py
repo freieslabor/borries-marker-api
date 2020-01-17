@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import sys
 import asyncio
 from aiohttp.web import Application, Response
 import os
@@ -46,7 +47,11 @@ def run():
     app.router.add_route('*', '/language.xml', language_xml)
 
     # add API urls
-    api = RRApi()
+    try:
+        api = RRApi(sys.argv[1])
+    except IndexError:
+        api = RRApi('/dev/emu')
+
     app.router.add_route('*', '/rr_connect', api.rr_connect)
     app.router.add_route('*', '/rr_disconnect', api.rr_disconnect)
 

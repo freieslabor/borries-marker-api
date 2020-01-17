@@ -13,8 +13,8 @@ from gcode import GCodeToBorries
 class RRApi(object):
     ALLOWED_DIRECTORIES = ['gcodes', 'macros']
 
-    def __init__(self):
-        self.gcode_to_borries = GCodeToBorries()
+    def __init__(self, port='/dev/ttUSB0'):
+        self.gcode_to_borries = GCodeToBorries(port)
 
     async def rr_connect(self, request):
         # FIXME: implement auth
